@@ -1,9 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
-	"fmt"
+	"github.com/gin-gonic/gin"
 )
 
 type Courses struct{
@@ -16,18 +15,37 @@ var courses = []Courses{
 	{"101","CloudLab: WebSockets-based Chat Application using API Gateway"},
 }
 
-func getHandler(w http.ResponseWriter, r *http.Request) {
-	jsonData, err := json.Marshal(courses)
+func getCourses(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, courses)
+}
+
+func getSpecificCourse(c *gin.Context){
+	id := c.Param("id")
+	for _, course := range courses{
+		if course.ID == id{
+			c.IndentedJSON(http.StatusOK, course)
+			return
+		}
+	}
+	c.IndentedJSON(http.StatusNotFound, gin.H{"error": "Курс с таким ID не найден"})
+}
+
+func addCourse(c *gin.Context){
+	var courseToAdd Courses
+	err := c.ShouldBindJSON(&courseToAdd)
 	if err != nil{
-		fmt.Fprint(w, err.Error())
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
-	fmt.Fprint(w, string(jsonData))
-	// w.Header().Set("Content-Type", "application/json")
-	// json.NewEncoder(w).Encode(courses)
+	courses = append(courses, courseToAdd)
+	c.IndentedJSON(http.StatusCreated, courses)
 }
 
 func main() {
-	http.HandleFunc("/courses", getHandler)
-	http.ListenAndServe(":8080", nil)
+	r := gin.Default()
+	r.GET("/courses", getCourses)
+	r.GET("/courses/:id", getSpecificCourse)
+	r.POST("/courses", addCourse)
+
+	r.Run(":8080")
 }
